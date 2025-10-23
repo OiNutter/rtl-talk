@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>RTL Best Practices</title>
+
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/dracula.css">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="plugin/highlight/monokai.css">
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section>
+					<h2 class="fragment">RTL Best Practices</h2>
+					<h3 class="fragment">Or: How I learned to stop worrying and test the DOM</h3>
+				</section>
+				<section>
+					<h2>Why am I here?</h2>
+					<ul>
+						<li class="fragment">Vitest + React Testing Library are now our standard issue tools for unit testing our SPAs</li>
+						<li class="fragment">React Testing Library provides some excellent methods and utils for accurately testing both the functionality and accessibility of our applications</li>
+						<li class="fragment">We're not using them properly...</li>
+					</ul>
+				</section>
+				<section>
+					<h2>The long version...</h2>
+					<p>
+						Kent C Dodds has a great write-up on best practices for using React Testing Library:
+						<a href="kentcdodds.com/blog/common-mistakes-with-react-testing-library" target="_blank" rel="noopener">kentcdodds.com/blog/common-mistakes-with-react-testing-library</a>
+					</p>
+					<p>Everyone should read it!</p>
+				</section>
+				<section>
+					<h2>The highlight reel...</h2>
+				</section>
+				<section>
+					<section>
+						<img src="img/fireevent-bad.jpg" alt="FireEvent Bad" />
+					</section>
+					<section>
+						<h2>But why?</h2>
+						<ul>
+							<li class="fragment"><code>fireEvent</code> might seem like the right tool, you want to fire an event after all...</li>
+							<li class="fragment">However, it doesn't simulate the way users interact with your app</li>
+							<li class="fragment"><code>fireEvent</code> just fires a single event, <code>userEvent</code> triggers all the events that the user interaction would normally trigger</li>
+							<li class="fragment">It includes checking that elements are actually interactable with and simulating the timing of those interactions, including handling the <code>act</code> wrapping </li>
+						</ul>
+					</section>
+					<section>
+						<pre>
+							<code class="language-ts">
+// ❌
+fireEvent.change(input, { target: { value: 'Hello, World!' } });
+
+// ✅
+await userEvent.type(input, 'Hello, World!');
+							</code>
+						</pre>
+					</section>
+				</section>
+				<section>
+					<section>
+						<img src="img/screen.jpg" alt="I scream, you scream, we all need to use screen" />
+					</section>
+					<section>
+						<h2>Screen time...</h2>
+						<ul>
+							<li class="fragment">Using the return value of <code>render</code> can lead to confusion when multiple components are rendered in a single test</li>
+							<li class="fragment"><code>screen</code> is a global that always points to the currently rendered DOM, so there's no ambiguity</li>
+							<li class="fragment">It also saves you keeping your <code>render</code> destructure up to date every time you want to use a new query</li>
+						</ul>
+				</section>
+				<section>
+					<pre>
+						<code class="language-ts">
+// ❌
+const { getByText } = render(&lt;MyComponent /&gt;);
+getByText('Submit').click();
+
+// ✅
+render(&lt;MyComponent /&gt;);
+screen.getByText('Submit').click();
+						</code>
+					</pre>
+				</section>
+				</section>
+				<section>
+					<section>
+						<img src="img/jest-dom-it.jpg" alt="Jest DOM It" />
+					</section>
+					<section>
+						<h2>Using the wrong assertion makes an... uh, never mind...</h2>
+						<ul>
+							<li class="fragment"><code>@testing-library/jest-dom</code> provides a suite of `expect` extensions to provide more helpful assertions</li>
+							<li class="fragment">Your tests will be cleaner and more readable, and the error messages will be much more helpful</li>
+						</ul>
+					</section>
+					<section>
+						<pre>
+							<code class="language-ts">
+const button = screen.getByRole('button', { name: /disabled button/i })
+
+// ❌
+expect(button.disabled).toBe(true)
+// error message:
+//  expect(received).toBe(expected) // Object.is equality
+//
+//  Expected: true
+//  Received: false
+
+// ✅
+expect(button).toBeDisabled()
+// error message:
+//   Received element is not disabled:
+//     &lt;button /&gt;
+							</code>
+						</pre>
+					</section>
+				</section>
+				<section>
+					<section>
+						<img src="img/oasis.jpg" alt="You getByRole with it"/>
+					</section>
+					<section>
+						<h2>Be querious, not judgemental...</h2>
+						<ul>
+							<li class="fragment">A common practice from the days of Cypress is using test ids to identify elements</li>
+							<li class="fragment">This pollutes your code and the DOM with test specific markup and doesn't let us test for what a user is actually seeing</li>
+							<li class="fragment">Recommendations on which query to use can be found <a href="https://testing-library.com/docs/guide-which-query" target="_blank" rel="noopener">here</a></li>
+						</ul>
+					</section>
+					<section>
+						<h2>Ultimate power!</h2>
+						<ul>
+							<li class="fragment"><code>*ByRole</code> queries are the most powerful query, as it can find elements by their semantic role and accessible name</li>
+							<li class="fragment">This gives us improved accessibility checking as well as verifying we're hitting the element we expect and it's displaying the text we expect</li>
+							<li class="fragment">The error messages will also show you what roles are present in the DOM</li>
+						</ul>
+					</section>
+					<section>
+						<pre>
+							<code class="language-ts">
+								// ❌
+// assuming you've got this DOM to work with:
+// <label>Username</label><input data-testid="username" />
+screen.getByTestId('username')
+
+// ✅
+// change the DOM to be accessible by associating the label and setting the type
+// <label for="username">Username</label><input id="username" type="text" />
+screen.getByRole('textbox', { name: /username/i })
+							</code>
+						</pre>
+					</section>
+				</section>
+				<section>
+					<section>
+						<img src="img/finding-dom-nodes.jpg" alt="Finding DOM-Nodes" />
+					</section>
+					<section>
+						<h2>Don't <code>waitFor</code> your prince to come...</h2>
+						<ul>
+							<li class="fragment"><code>waitFor</code> is a low-level utility for waiting for arbitrary conditions to be met</li>
+							<li class="fragment">Most of the time, when waiting for elements to appear in the DOM, you should be using the built-in async query methods like <code>findBy...</code></li>
+							<li class="fragment">These methods are specifically designed for this purpose and will lead to cleaner, more readable tests and better error messages</li>
+					</section>
+					<section>
+						<pre>
+							<code class="language-ts">
+// ❌
+const submitButton = await waitFor(() =>
+	screen.getByRole('button', { name: /submit/i }),
+)
+
+// ✅
+const submitButton = await screen.findByRole('button', { name: /submit/i })
+							</code>
+						</pre>
+					</section>
+				</section>
+				<section>
+					<h2>Thank you!</h2>
+					<p>Questions?</p>
+				</section>
+				<section>
+					<h2>Please... try the fish!</h2>
+				</section>
+			</div>
+		</div>
+
+		<script src="dist/reveal.js"></script>
+		<script src="plugin/notes/notes.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+			});
+		</script>
+	</body>
+</html>
